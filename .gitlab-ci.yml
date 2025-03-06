@@ -26,6 +26,7 @@ pages:
     PREEMPTIBLE: "false"
     INSTANCE_TYPE: "instance-type" 
 
+    
     #you may not need to edit the following variables
     HELM_PATH: "${INSTANCE_TYPE}/${HELM_DIR}/${DST_INSTANCE}" #new instance folder location in k8s repo
 
