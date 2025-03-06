@@ -1,0 +1,85 @@
+apiVersion: {{ .Values.apiversion }}
+kind: AttachedDisk
+metadata:
+  name: {{ .Chart.Name  }}-attached-disk
+spec:
+  deletionPolicy: Orphan
+  forProvider:
+    deviceName: data
+    diskRef:
+      name: {{ .Chart.Name  }}-disk
+    instanceRef:
+      name: {{ .Chart.Name  }}-instance
+  providerConfigRef:
+    name: {{ .Values.providerconfigref }}
+---
+apiVersion: {{ .Values.apiversion }}
+kind: Disk
+metadata:
+  name: {{ .Chart.Name  }}-disk
+spec:
+  deletionPolicy: Orphan
+  forProvider:
+    {{- template "mychart.labels" .}}
+    {{- if .Values.snapshot }}
+    snapshot: {{ .Values.snapshot }}
+    size: {{ .Values.data_disk_size }}
+    {{- else if .Values.sourceDisk }}
+    sourceDisk: {{ .Values.sourceDisk }}
+    size: {{ .Values.data_disk_size }}
+    {{- else }}
+    size: {{ .Values.data_disk_size }}
+    {{- end }}
+    type: {{ .Values.data_disk_type }}
+    zone: {{ .Values.zone }}
+  providerConfigRef:
+    name: {{ .Values.providerconfigref }}
+---
+apiVersion: {{ .Values.apiversion }}
+kind: Instance
+metadata:
+  name: {{ .Chart.Name  }}-instance
+spec:
+  forProvider:
+    deletionProtection: true
+    allowStoppingForUpdate: true
+    bootDisk:
+    - initializeParams:
+      - image: {{ .Values.bootimage }}
+        size: {{ .Values.bootDiskSize }}
+        type: {{ .Values.bootDiskType }}
+    {{- template "mychart.labels" .}}
+    machineType: {{ .Values.machineType }}
+    networkInterface:
+    - subnetwork: {{ .Values.subnetwork }}
+    tags:
+    - {{ .Values.type }}
+    - restricted 
+    - {{ .Values.project }}
+    zone: {{ .Values.zone }}
+    {{- if .Values.preemptible }}
+    scheduling:
+    - preemptible: {{ .Values.preemptible }}
+      automaticRestart: false
+    {{- end }}
+    metadataStartupScript: |
+      #!/bin/bash
+      DEVICE="/dev/sdb"
+      if grep -qs "$DEVICE" /proc/mounts; then
+        echo "Device $DEVICE is already mounted."
+        exit 0
+      fi
+      while [ ! -b "$DEVICE" ]; do
+        sleep 1
+      done
+      if grep -qs "$DEVICE" /etc/fstab; then
+        echo "Record for $DEVICE already exist."
+      else
+        echo "Creating record for $DEVICE"
+        echo "$DEVICE /media/data xfs noatime 0 0" >> /etc/fstab
+      fi
+      systemctl daemon-reload
+      mkfs.xfs /dev/sdb
+      mount -a
+  providerConfigRef:
+    name: {{ .Values.providerconfigref }}

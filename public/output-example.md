@@ -1,0 +1,467 @@
+# Gitlab GCE Cloning Pipeline Example Output
+
+$ export PATH="$PATH:/root/google-cloud-sdk/bin"
+$ echo $GCLOUD_SA > /root/key.json
+$ gcloud auth activate-service-account --key-file=/root/key.json
+Activated service account credentials for: [gitlab-gce@your-new-host-project.iam.gserviceaccount.com]
+$ echo "Installing Helm"
+Installing Helm
+$ curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+$ chmod +x get_helm.sh
+$ ./get_helm.sh
+Downloading https://get.helm.sh/helm-v3.16.2-linux-amd64.tar.gz
+Verifying checksum... Done.
+Preparing to install helm into /usr/local/bin
+helm installed into /usr/local/bin/helm
+$ echo "gcloud checking for boot image"
+gcloud checking for boot image
+$ if ! gcloud compute images describe "$SRC_IMG" --quiet; then # collapsed multi-line command
+ERROR: (gcloud.compute.images.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/global/images/your-new-host-name-1-instance-image' was not found
+Creating image your-new-host-name-1-instance-image
+Created [https://www.googleapis.com/compute/v1/projects/your-new-host-project/global/images/your-new-host-name-1-instance-image].
+WARNING: Some requests generated warnings:
+ - 
+NAME                                 PROJECT          FAMILY         DEPRECATED  STATUS
+your-new-host-name-1-instance-image  your-new-host-project  gce-boot-disk              READY
+$ echo "gcloud checking for snapshot"
+gcloud checking for snapshot
+$ if ! gcloud compute snapshots describe "$DATA_SNAPSHOT" --quiet; then # collapsed multi-line command
+ERROR: (gcloud.compute.snapshots.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/global/snapshots/your-new-host-name-1-disk-snapshot' was not found
+Creating snapshot your-new-host-name-1-disk-snapshot
+Creating snapshot(s) your-new-host-name-1-disk-snapshot...
+............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................done.
+$ echo "Setting up SSH key for Git"
+Setting up SSH key for Git
+$ mkdir /root/.ssh
+$ echo "$GITSSH_KEY" | base64 -d > /root/.ssh/id_rsa
+$ chmod 600 /root/.ssh/id_rsa
+$ ls -al /root/.ssh/id_rsa
+-rw-------    1 root     root          1843 Oct 15 07:27 /root/.ssh/id_rsa
+$ ssh-keyscan bitbucket.org >> /root/.ssh/known_hosts
+# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty 29da7a9099ba
+# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty bab1c7dae3f8
+# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty 412659f0d4a8
+# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty 25459a5638e8
+# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty 959ddb9b2466
+$ echo "Cloning the remote repository"
+Cloning the remote repository
+$ git clone git@bitbucket.org:menadev/k8s-configurations.git
+Cloning into 'k8s-configurations'...
+$ cd k8s-configurations/
+$ echo "Checking out the 'production' branch"
+Checking out the 'production' branch
+$ git checkout production
+branch 'production' set up to track 'origin/production'.
+Switched to a new branch 'production'
+$ echo "Checking HELM folder"
+Checking HELM folder
+$ ls -al GCP/gke-crossplane/argocd-git/nodes/instance-type/
+total 56
+drwxr-xr-x   14 root     root          4096 Oct 15 07:27 .
+drwxr-xr-x   10 root     root          4096 Oct 15 07:27 ..
+drwxr-xr-x    4 root     root          4096 Oct 15 07:27 btc
+drwxr-xr-x    3 root     root          4096 Oct 15 07:27 btc-cash
+drwxr-xr-x    3 root     root          4096 Oct 15 07:27 dash
+drwxr-xr-x    4 root     root          4096 Oct 15 07:27 dogecoin
+drwxr-xr-x    6 root     root          4096 Oct 15 07:27 host-helm-dir
+drwxr-xr-x    4 root     root          4096 Oct 15 07:27 host-helm-dir-classic
+drwxr-xr-x    3 root     root          4096 Oct 15 07:27 litecoin
+drwxr-xr-x    4 root     root          4096 Oct 15 07:27 polygon
+drwxr-xr-x    5 root     root          4096 Oct 15 07:27 test
+drwxr-xr-x    4 root     root          4096 Oct 15 07:27 tron
+drwxr-xr-x    3 root     root          4096 Oct 15 07:27 xrp
+drwxr-xr-x    3 root     root          4096 Oct 15 07:27 zcash
+$ echo "Create helm folder $HELM_PATH/manifests"
+Create helm folder GCP/gke-crossplane/argocd-git/nodes/instance-type/host-helm-dir/your-new-host-name-tmp/manifests
+$ mkdir -p $HELM_PATH/manifests/templates
+$ echo "Writing Chart.yaml for Helm chart"
+Writing Chart.yaml for Helm chart
+$ echo " # collapsed multi-line command
+$ echo " # collapsed multi-line command
+$ echo "copy manifests templates"
+copy manifests templates
+$ cp /builds/devops-gce/gce-clone/public/*tpl $HELM_PATH/manifests/templates/
+$ echo "copy disk definition"
+copy disk definition
+$ cp /builds/devops-gce/gce-clone/public/disk.yaml $HELM_PATH/manifests/templates/
+$ echo "Build Helm Template $DST_INSTANCE.yaml"
+Build Helm Template your-new-host-name-tmp.yaml
+$ cd "$HELM_PATH"
+$ helm template manifests > "$DST_INSTANCE.yaml"
+$ echo "Checking disk generated helm template"
+Checking disk generated helm template
+$ cat "$DST_INSTANCE.yaml"
+---
+# Source: your-new-host-name-tmp/templates/disk.yaml
+apiVersion: compute.gcp.upbound.io/v1beta1
+kind: AttachedDisk
+metadata:
+  name: your-new-host-name-tmp-attached-disk
+spec:
+  deletionPolicy: Orphan
+  forProvider:
+    deviceName: data
+    diskRef:
+      name: your-new-host-name-tmp-disk
+    instanceRef:
+      name: your-new-host-name-tmp-instance
+  providerConfigRef:
+    name: default-upbound
+---
+# Source: your-new-host-name-tmp/templates/disk.yaml
+apiVersion: compute.gcp.upbound.io/v1beta1
+kind: Disk
+metadata:
+  name: your-new-host-name-tmp-disk
+spec:
+  deletionPolicy: Orphan
+  forProvider:
+    labels:
+      generated: helm
+      managed: crossplane
+      name: your-new-host-name-tmp
+      project: your-new-host-project
+      type: instance-type
+      date: 2024-10-15
+    snapshot: projects/your-new-host-project/global/snapshots/your-new-host-name-1-disk-snapshot
+    type: pd-balanced
+    zone: europe-west1-c
+  providerConfigRef:
+    name: default-upbound
+$ echo "setting up git"
+setting up git
+$ git config --global user.name "GITUSER"
+$ git config --global user.email "GITMAIL"
+$ if [ -n "$(git status --porcelain)" ]; then # collapsed multi-line command
+Committing changes
+commit Create full node crossplane definition for your-new-host-name-tmp
+[production 0216dce2] Create disk your-new-host-name-tmp-disk or your-new-host-name-tmp
+ 6 files changed, 172 insertions(+)
+ create mode 100644 GCP/gke-crossplane/argocd-git/nodes/instance-type/host-helm-dir/your-new-host-name-tmp/your-new-host-name-tmp.yaml
+ create mode 100644 GCP/gke-crossplane/argocd-git/nodes/instance-type/host-helm-dir/your-new-host-name-tmp/manifests/Chart.yaml
+ create mode 100644 GCP/gke-crossplane/argocd-git/nodes/instance-type/host-helm-dir/your-new-host-name-tmp/manifests/templates/_helpers.tpl
+ create mode 100644 GCP/gke-crossplane/argocd-git/nodes/instance-type/host-helm-dir/your-new-host-name-tmp/manifests/templates/_labels.tpl
+ create mode 100644 GCP/gke-crossplane/argocd-git/nodes/instance-type/host-helm-dir/your-new-host-name-tmp/manifests/templates/disk.yaml
+ create mode 100644 GCP/gke-crossplane/argocd-git/nodes/instance-type/host-helm-dir/your-new-host-name-tmp/manifests/values.yaml
+git push
+To bitbucket.org:menadev/k8s-configurations.git
+   67859f26..0216dce2  production -> production
+branch 'production' set up to track 'origin/production'.
+$ echo "gcloud wait for data disk $DST_DATA_DISK"
+gcloud wait for data disk your-new-host-name-tmp-disk
+$ while ! gcloud compute disks describe "$DST_DATA_DISK" --zone "$GCP_ZONE" --format "value(status)" | grep -q "READY"; do sleep 10; done && echo "Disk $DST_DATA_DISK is ready. Proceeding with the script."
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+ERROR: (gcloud.compute.disks.describe) HTTPError 404: The resource 'projects/your-new-host-project/zones/europe-west1-c/disks/your-new-host-name-tmp-disk' was not found. This command is authenticated as gitlab-gce@your-new-host-project.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+Disk your-new-host-name-tmp-disk is ready. Proceeding with the script.
+$ echo 'Create full template in k8s repository'
+Create full template in k8s repository
+$ rm ./manifests/templates/disk.yaml
+$ cp /builds/devops-gce/gce-clone/public/all.yaml ./manifests/templates/
+$ echo 'Helm template'
+Helm template
+$ helm template manifests > "$DST_INSTANCE.yaml"
+$ echo 'checking helm full template'
+checking helm full template
+$ cat "$DST_INSTANCE.yaml"
+---
+# Source: your-new-host-name-tmp/templates/all.yaml
+apiVersion: compute.gcp.upbound.io/v1beta1
+kind: AttachedDisk
+metadata:
+  name: your-new-host-name-tmp-attached-disk
+spec:
+  deletionPolicy: Orphan
+  forProvider:
+    deviceName: data
+    diskRef:
+      name: your-new-host-name-tmp-disk
+    instanceRef:
+      name: your-new-host-name-tmp-instance
+  providerConfigRef:
+    name: default-upbound
+---
+# Source: your-new-host-name-tmp/templates/all.yaml
+apiVersion: compute.gcp.upbound.io/v1beta1
+kind: Disk
+metadata:
+  name: your-new-host-name-tmp-disk
+spec:
+  deletionPolicy: Orphan
+  forProvider:
+    labels:
+      generated: helm
+      managed: crossplane
+      name: your-new-host-name-tmp
+      project: your-new-host-project
+      type: instance-type
+      date: 2024-10-15
+    snapshot: projects/your-new-host-project/global/snapshots/your-new-host-name-1-disk-snapshot
+    size: 3296
+    type: pd-balanced
+    zone: europe-west1-c
+  providerConfigRef:
+    name: default-upbound
+---
+# Source: your-new-host-name-tmp/templates/all.yaml
+apiVersion: compute.gcp.upbound.io/v1beta1
+kind: Instance
+metadata:
+  name: your-new-host-name-tmp-instance
+spec:
+  forProvider:
+    deletionProtection: true
+    allowStoppingForUpdate: true
+    bootDisk:
+    - initializeParams:
+      - image: projects/your-new-host-project/global/images/your-new-host-name-1-instance-image
+        size: 20
+        type: pd-balanced
+    labels:
+      generated: helm
+      managed: crossplane
+      name: your-new-host-name-tmp
+      project: your-new-host-project
+      type: instance-type
+      date: 2024-10-15
+    machineType: n2d-standad-8
+    networkInterface:
+    - subnetwork: belgium-europe-west-vm
+    tags:
+    - instance-type
+    - restricted 
+    - your-new-host-project
+    zone: europe-west1-c
+    metadataStartupScript: |
+      #!/bin/bash
+      DEVICE="/dev/sdb"
+      if grep -qs "$DEVICE" /proc/mounts; then
+        echo "Device $DEVICE is already mounted."
+        exit 0
+      fi
+      while [ ! -b "$DEVICE" ]; do
+        sleep 1
+      done
+      if grep -qs "$DEVICE" /etc/fstab; then
+        echo "Record for $DEVICE already exist."
+      else
+        echo "Creating record for $DEVICE"
+        echo "$DEVICE /media/data xfs noatime 0 0" >> /etc/fstab
+      fi
+      systemctl daemon-reload
+      mkfs.xfs /dev/sdb
+      mount -a
+  providerConfigRef:
+    name: default-upbound
+$ echo "git add helm folder"
+git add helm folder
+$ git add .
+$ echo "commit> Create full node crossplane definition for $DST_INSTANCE"
+commit> Create full node crossplane definition for your-new-host-name-tmp
+$ git commit -m "Create full node crossplane definition for $DST_INSTANCE"
+[production dab8c961] Create full node crossplane definition for your-new-host-name-tmp
+ 3 files changed, 139 insertions(+), 36 deletions(-)
+ create mode 100644 GCP/gke-crossplane/argocd-git/nodes/instance-type/host-helm-dir/your-new-host-name-tmp/manifests/templates/all.yaml
+ delete mode 100644 GCP/gke-crossplane/argocd-git/nodes/instance-type/host-helm-dir/your-new-host-name-tmp/manifests/templates/disk.yaml
+$ echo "git push"
+git push
+$ git push -u origin production
+To bitbucket.org:menadev/k8s-configurations.git
+   0216dce2..dab8c961  production -> production
+branch 'production' set up to track 'origin/production'.
+$ echo "Waiting for dst instance '$DST_INSTANCE' to become running..."
+Waiting for dst instance 'your-new-host-name-tmp' to become running...
+$ while ! gcloud compute instances describe "$DST_INSTANCE"-instance --zone "$GCP_ZONE" --format "value(status)" | grep -q "RUNNING"; do sleep 10; done && echo "Instance $DST_INSTANCE is ready. Proceeding with the script."
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/your-new-host-project/zones/europe-west1-c/instances/your-new-host-name-tmp-instance' was not found
+Instance your-new-host-name-tmp is ready. Proceeding with the script.
+$ echo "cleaning image $SRC_IMG"
+cleaning image your-new-host-name-1-instance-image
+$ gcloud compute images delete "$SRC_IMG" --quiet
+Deleted [https://www.googleapis.com/compute/v1/projects/your-new-host-project/global/images/your-new-host-name-1-instance-image].
+$ echo "cleaning data snapshot $DATA_SNAPSHOT"
+cleaning data snapshot your-new-host-name-1-disk-snapshot
+$ gcloud compute snapshots delete "$DATA_SNAPSHOT" --quiet
+Deleted [https://www.googleapis.com/compute/v1/projects/your-new-host-project/global/snapshots/your-new-host-name-1-disk-snapshot].
+Uploading artifacts for successful job
+00:01
+Uploading artifacts...
+public: found 5 matching artifact files and directories 
+Uploading artifacts as "archive" to coordinator... 201 Created  id=972 responseStatus=201 Created token=64_JmfyK
+Job succeeded

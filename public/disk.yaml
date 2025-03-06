@@ -1,0 +1,19 @@
+apiVersion: {{ .Values.apiversion }}
+kind: Disk
+metadata:
+  name: {{ .Chart.Name  }}-disk
+spec:
+  deletionPolicy: Orphan
+  forProvider:
+    {{- template "mychart.labels" .}}
+    {{- if .Values.snapshot }}
+    snapshot: {{ .Values.snapshot }}
+    {{- else if .Values.sourceDisk }}
+    sourceDisk: {{ .Values.sourceDisk }}
+    {{- else }}
+    size: {{ .Values.data_disk_size }}
+    {{- end }}
+    type: {{ .Values.data_disk_type }}
+    zone: {{ .Values.zone }}
+  providerConfigRef:
+    name: {{ .Values.providerconfigref }}

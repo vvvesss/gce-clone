@@ -1,0 +1,189 @@
+image: alpine:latest
+
+pages:
+  stage: deploy
+  variables:
+    # Setup this GitLab CI-CD Variables
+    # GCLOUD_SA 
+    # GITSSH_KEY
+    # GITUSER 
+    # GITMAIL
+    # REPO 
+    # BRANCH 
+
+    #HELM values
+    DST_INSTANCE: "your-destination-gce-instance-name-without'-instance'-at-the-end" 
+    SRC_INSTANCE: "your-source-gce-instance-name-without'-instance'-at-the-end"
+    DATA_DISK_SIZE: "3296"
+    BOOT_DISK_SIZE: "20" 
+    DATA_DISK_TYPE: "pd-balanced"
+    BOOT_DISK_TYPE: "pd-balanced"
+    PROJECT: "your-new-host-project"
+    HELM_DIR: "host-helm-dir-name"
+    MACHINE_TYPE: "n2d-standad-8"
+    PREEMPTIBLE: "false"
+    INSTANCE_TYPE: "instance-type" 
+
+    #you may not need to edit the following variables
+    HELM_PATH: "${INSTANCE_TYPE}/${HELM_DIR}/${DST_INSTANCE}" #new instance folder location in k8s repo
+
+    #gcloud definitions
+    GCP_PROJECT: "your-gcp-project"
+    GCP_ZONE: "europe-west1-c"
+    IMG_FAMILY: "gce-boot-disk"
+    STORAGE_LOCATION: "europe-west1"
+    SUBNETWORK: "belgium-europe-west-vm"
+
+    #volumes
+    SRC_DISK: "${SRC_INSTANCE}-instance" #source boot disk name
+    DATA_DISK: "${SRC_INSTANCE}-disk" #source data disk name
+    DST_DATA_DISK: "${DST_INSTANCE}-disk"
+    SRC_IMG: "${SRC_DISK}-image" #boot img name
+    DATA_SNAPSHOT: "${DATA_DISK}-snapshot" #data disk snapshot name
+
+  before_script:
+    - 'command -v ssh-agent >/dev/null || (apk add --update bash which python3 curl git openssl openssh-client)'
+    - curl -sSL https://sdk.cloud.google.com | bash
+    - export PATH="$PATH:/root/google-cloud-sdk/bin"
+    - echo $GCLOUD_SA > /root/key.json
+    - gcloud auth activate-service-account --key-file=/root/key.json
+    - echo "Installing Helm"
+    - curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+    - chmod +x get_helm.sh
+    - ./get_helm.sh
+
+  script:
+    - echo "gcloud checking for boot image"
+    - |
+      if ! gcloud compute images describe "$SRC_IMG" --quiet; then
+        echo "Creating image $SRC_IMG";
+        gcloud compute images create "$SRC_IMG" --source-disk "$SRC_DISK" --source-disk-zone "$GCP_ZONE" --family "$IMG_FAMILY" --description "Boot Image from $SRC_DISK" --force;
+      else
+        echo "Image $SRC_IMG already exists. Skipping image creation.";
+      fi
+
+    - echo "gcloud checking for snapshot"
+    - |
+      if ! gcloud compute snapshots describe "$DATA_SNAPSHOT" --quiet; then
+        echo "Creating snapshot $DATA_SNAPSHOT";
+        gcloud compute disks snapshot "$DATA_DISK" --zone "$GCP_ZONE" --snapshot-names "$DATA_SNAPSHOT" --storage-location "$STORAGE_LOCATION";
+      else
+        echo "Snapshot $DATA_SNAPSHOT already exists. Skipping snapshot creation.";
+      fi
+
+    - echo "Setting up SSH key for Git"
+    - mkdir /root/.ssh
+    - echo "$GITSSH_KEY" | base64 -d > /root/.ssh/id_rsa
+    - chmod 600 /root/.ssh/id_rsa
+    - ls -al /root/.ssh/id_rsa
+    - ssh-keyscan bitbucket.org >> /root/.ssh/known_hosts
+
+    - echo "Cloning the remote repository"
+    - git clone $REPO
+
+
+    - echo "Checking out the 'production' branch"
+    - git checkout $BRANCH
+
+    - echo "Create helm folder $HELM_PATH/manifests"
+    - mkdir -p $HELM_PATH/manifests/templates
+
+    - echo "Writing Chart.yaml for Helm chart"
+    - |
+      echo "
+      apiVersion: v2
+      name: $DST_INSTANCE
+      description: A Helm chart for Kubernetes
+      type: application
+      version: 0.1.0
+      appVersion: '1.16.0' " > "$HELM_PATH/manifests/Chart.yaml"
+    - |
+      echo "
+      # This is a YAML-formatted file.
+      # Declare variables to be passed into your templates.
+      type: $INSTANCE_TYPE
+      project: $PROJECT
+      providerconfigref: default-upbound
+      apiversion: compute.gcp.upbound.io/v1beta1
+
+      machineType: $MACHINE_TYPE
+
+      data_disk_size: $DATA_DISK_SIZE
+      data_disk_type: $DATA_DISK_TYPE
+      snapshot: projects/$GCP_PROJECT/global/snapshots/$DATA_SNAPSHOT
+      sourceDisk:
+
+      bootDiskSize: $BOOT_DISK_SIZE
+      bootDiskType: $BOOT_DISK_TYPE
+      bootimage: projects/$GCP_PROJECT/global/images/$SRC_IMG
+      subnetwork: $SUBNETWORK
+      zone: $GCP_ZONE 
+      preemptible: $PREEMPTIBLE 
+      " > "$HELM_PATH/manifests/values.yaml"
+
+    - echo "copy manifests templates"
+    - cp /builds/devops-gce/gce-clone/public/*tpl $HELM_PATH/manifests/templates/
+
+    - echo "copy disk definition"
+    - cp /builds/devops-gce/gce-clone/public/disk.yaml $HELM_PATH/manifests/templates/
+
+    # don't use helm folder from now on in mixed context
+    - echo "Build Helm Template $DST_INSTANCE.yaml"
+    - cd "$HELM_PATH" 
+    - helm template manifests > "$DST_INSTANCE.yaml"
+
+    - echo "Checking disk generated helm template"
+    - cat "$DST_INSTANCE.yaml"
+
+    - echo "setting up git"
+    - git config --global user.name $GITUSER
+    - git config --global user.email $GITMAIL
+
+    - |
+      if [ -n "$(git status --porcelain)" ]; then
+        echo "Committing changes";
+        git add .;
+        echo "commit Create full node crossplane definition for $DST_INSTANCE";
+        git commit -m "Create disk $DST_DATA_DISK or $DST_INSTANCE";
+        echo "git push";
+        git push -u origin production;
+      else
+        echo "No changes to commit. Skipping commit step.";
+      fi
+
+    - echo "gcloud wait for data disk $DST_DATA_DISK"
+    - while ! gcloud compute disks describe "$DST_DATA_DISK" --zone "$GCP_ZONE" --format "value(status)" | grep -q "READY"; do sleep 10; done && echo "Disk $DST_DATA_DISK is ready. Proceeding with the script."
+
+    - echo 'Create full template in k8s repository'
+    - rm ./manifests/templates/disk.yaml
+    - cp /builds/devops-gce/gce-clone/public/all.yaml ./manifests/templates/
+
+    - echo 'Helm template'
+    - helm template manifests > "$DST_INSTANCE.yaml"
+
+    - echo 'checking helm full template'
+    - cat "$DST_INSTANCE.yaml"
+
+    - echo "git add helm folder"
+    - git add .
+
+    - echo "commit> Create full node crossplane definition for $DST_INSTANCE"
+    - git commit -m "Create full node crossplane definition for $DST_INSTANCE"
+
+    - echo "git push"
+    - git push -u origin production
+
+    - echo "Waiting for dst instance '$DST_INSTANCE' to become running..."
+    - while ! gcloud compute instances describe "$DST_INSTANCE"-instance --zone "$GCP_ZONE" --format "value(status)" | grep -q "RUNNING"; do sleep 10; done && echo "Instance $DST_INSTANCE is ready. Proceeding with the script."
+
+    - echo "cleaning image $SRC_IMG"
+    - gcloud compute images delete "$SRC_IMG" --quiet
+
+    - echo "cleaning data snapshot $DATA_SNAPSHOT"
+    - gcloud compute snapshots delete "$DATA_SNAPSHOT" --quiet
+
+  artifacts:
+    paths:
+      - public
+  only:
+    - production
