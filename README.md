@@ -1,4 +1,4 @@
-# GCE Instance Cloning GitLab CI/CD Pipeline
+# GCE Instance Cloning GitLab CI/CD Pipeline with Crossplane and Argocd
 
 ## Overview
 This GitLab pipeline automates the cloning of a GCE (Google Compute Engine) instance in GCP. It:
