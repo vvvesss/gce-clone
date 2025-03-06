@@ -80,25 +80,10 @@ To trigger the pipeline, push changes to the `production` branch in GitLab or ru
 - Ensure ArgoCD is correctly configured and syncing changes from the repository.
 
 
+TODO
 
-### **Potential AI Improvement Suggestions:**
-
-#### **1. Optimize Image and Snapshot Creation**
-You're checking for existing images and snapshots before creating them, which is great. However, these checks could be optimized by explicitly checking for errors instead of relying on `gcloud` returning an error.
-
-✅ **Suggested Improvement:**
-```bash
-if ! gcloud compute images describe "$SRC_IMG" --quiet 2>/dev/null; then
-  echo "Creating image $SRC_IMG";
-  gcloud compute images create "$SRC_IMG" --source-disk "$SRC_DISK" --source-disk-zone "$GCP_ZONE" --family "$IMG_FAMILY" --description "Boot Image from $SRC_DISK" --force;
-else
-  echo "Image $SRC_IMG already exists. Skipping image creation.";
-fi
-```
-This prevents unnecessary logs from being printed.
-
-#### **2. Improve Git Operations**
-Right now, you're cloning the entire repository, but you only need a specific folder for Crossplane definitions. If the repository is large, this can slow down the process.
+#### **1. Improve Git Operations**
+Right now, I am cloning the entire repository, but I only need a specific folder for Crossplane definitions. If the repository is large, this can slow down the process.
 
 ✅ **Suggested Improvement:**
 Use a **shallow clone** to speed up the process:
@@ -109,8 +94,8 @@ This will only fetch the latest commit for the specified branch, reducing networ
 
 ---
 
-#### **3. Fix SSH Key Permissions Issue**
-You’re setting up SSH keys like this:
+#### **2. Fix SSH Key Permissions Issue**
+I am setting up SSH keys like this:
 ```bash
 mkdir /root/.ssh
 echo "$GITSSH_KEY" | base64 -d > /root/.ssh/id_rsa
@@ -129,33 +114,16 @@ This prevents potential SSH permission errors.
 
 ---
 
-#### **4. Improve ArgoCD Sync Timing**
-Your pipeline relies on ArgoCD to deploy the new Crossplane resources, but it doesn’t explicitly check whether the sync has completed. 
+#### **3. Improve ArgoCD Sync Timing**
+My pipeline relies on ArgoCD to deploy the new Crossplane resources, but it doesn’t explicitly check whether the sync has completed. 
 
 ✅ **Suggested Improvement:** 
-After pushing to Git, you can add:
+After pushing to Git, I can add:
 ```bash
 echo "Waiting for ArgoCD to sync changes..."
 argocd app sync my-crossplane-app
 argocd app wait my-crossplane-app --health
 ```
-Replace `my-crossplane-app` with your actual ArgoCD application name.
+Replace `my-crossplane-app` with my actual ArgoCD application name.
 
 ---
-
-#### **5. Add Retry Logic for GCP Commands**
-Some GCP commands might fail due to temporary issues, such as API rate limits. Adding retries can make the pipeline more resilient.
-
-✅ **Suggested Improvement:**
-Wrap critical GCP commands in a retry loop:
-```bash
-for i in {1..5}; do
-  gcloud compute disks snapshot "$DATA_DISK" --zone "$GCP_ZONE" --snapshot-names "$DATA_SNAPSHOT" --storage-location "$STORAGE_LOCATION" && break
-  echo "Snapshot creation failed, retrying in 10s..."
-  sleep 10
-done
-```
-This will retry up to 5 times before failing.
-
----
-
