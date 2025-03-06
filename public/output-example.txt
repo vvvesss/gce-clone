@@ -40,11 +40,11 @@ $ chmod 600 /root/.ssh/id_rsa
 $ ls -al /root/.ssh/id_rsa
 -rw-------    1 root     root          1843 Oct 15 07:27 /root/.ssh/id_rsa
 $ ssh-keyscan bitbucket.org >> /root/.ssh/known_hosts
-# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty 29da7a9099ba
-# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty bab1c7dae3f8
-# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty 412659f0d4a8
-# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty 25459a5638e8
-# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty 959ddb9b2466
+# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty xxxxxxxxxxxx
+# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty xxxxxxxxxxxx
+# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty xxxxxxxxxxxx
+# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty xxxxxxxxxxxx
+# bitbucket.org:22 SSH-2.0-conker_d38dbe3303-dirty xxxxxxxxxxxx
 $ echo "Cloning the remote repository"
 Cloning the remote repository
 $ git clone git@bitbucket.org:menadev/k8s-configurations.git
