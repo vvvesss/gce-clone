@@ -12,15 +12,17 @@ This GitLab pipeline automates the cloning of a GCE (Google Compute Engine) inst
 
 ## Crossplane tree folder structure
 ```bash
-└── mainnet
-    └── your-destination-gce-instance-name
-        ├── manifests
-        │   ├── Chart.yaml
-        │   ├── templates
-        │   │   ├── _labels.tpl
-        │   │   └── all.yaml
-        │   └── values.yaml
-        └── your-destination-gce-instance-name.yaml # Kubernetes Crossplane definitions served by Argocd
+└── gitrepo
+	└── instance-type
+		└── host-helm-dir-name
+		    └── your-destination-gce-instance-name
+		        ├── manifests
+		        │   ├── Chart.yaml
+		        │   ├── templates
+		        │   │   ├── _labels.tpl
+		        │   │   └── all.yaml
+		        │   └── values.yaml
+		        └── your-destination-gce-instance-name.yaml # Kubernetes Crossplane definitions served by Argocd
 ```
 ## Prerequisites
 Before running this pipeline, ensure you have:
