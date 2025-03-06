@@ -80,7 +80,7 @@ To trigger the pipeline, push changes to the `production` branch in GitLab or ru
 - Ensure ArgoCD is correctly configured and syncing changes from the repository.
 
 
-TODO
+### TODO
 
 #### **1. Improve Git Operations**
 Right now, I am cloning the entire repository, but I only need a specific folder for Crossplane definitions. If the repository is large, this can slow down the process.
