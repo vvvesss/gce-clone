@@ -287,8 +287,8 @@ commit> Create full node crossplane definition for your-new-host-name-tmp
 $ git commit -m "Create full node crossplane definition for $DST_INSTANCE"
 [production dab8c961] Create full node crossplane definition for your-new-host-name-tmp
  3 files changed, 139 insertions(+), 36 deletions(-)
- create mode 100644 GCP/gke-crossplane/argocd-git/nodes/instance-type/host-helm-dir/your-new-host-name-tmp/manifests/templates/all.yaml
- delete mode 100644 GCP/gke-crossplane/argocd-git/nodes/instance-type/host-helm-dir/your-new-host-name-tmp/manifests/templates/disk.yaml
+ create mode 100644 /host-helm-dir/your-new-host-name-tmp/manifests/templates/all.yaml
+ delete mode 100644 /host-helm-dir/your-new-host-name-tmp/manifests/templates/disk.yaml
 $ echo "git push"
 git push
 $ git push -u origin production

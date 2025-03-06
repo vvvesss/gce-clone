@@ -14,6 +14,8 @@ pages:
     #HELM values
     DST_INSTANCE: "your-destination-gce-instance-name-without'-instance'-at-the-end" 
     SRC_INSTANCE: "your-source-gce-instance-name-without'-instance'-at-the-end"
+    GITLAB_GROUP: "devops-gce"
+    GITLAB_PROJECT: "gce-clone"
     DATA_DISK_SIZE: "3296"
     BOOT_DISK_SIZE: "20" 
     DATA_DISK_TYPE: "pd-balanced"
@@ -122,10 +124,10 @@ pages:
       " > "$HELM_PATH/manifests/values.yaml"
 
     - echo "copy manifests templates"
-    - cp /builds/devops-gce/gce-clone/public/*tpl $HELM_PATH/manifests/templates/
+    - cp /builds/$GITLAB_GROUP/$GITLAB_PROJECT/public/*tpl $HELM_PATH/manifests/templates/
 
     - echo "copy disk definition"
-    - cp /builds/devops-gce/gce-clone/public/disk.yaml $HELM_PATH/manifests/templates/
+    - cp /builds/$GITLAB_GROUP/$GITLAB_PROJECT/public/disk.yaml $HELM_PATH/manifests/templates/
 
     # don't use helm folder from now on in mixed context
     - echo "Build Helm Template $DST_INSTANCE.yaml"
@@ -156,7 +158,7 @@ pages:
 
     - echo 'Create full template in k8s repository'
     - rm ./manifests/templates/disk.yaml
-    - cp /builds/devops-gce/gce-clone/public/all.yaml ./manifests/templates/
+    - cp /builds/$GITLAB_GROUP/$GITLAB_PROJECT/public/all.yaml ./manifests/templates/
 
     - echo 'Helm template'
     - helm template manifests > "$DST_INSTANCE.yaml"
