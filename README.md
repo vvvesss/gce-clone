@@ -10,6 +10,18 @@ This GitLab pipeline automates the cloning of a GCE (Google Compute Engine) inst
 - Waits for the new instance to become available.
 - Cleans up temporary GCP resources (image and snapshot).
 
+## Crossplane tree folder structure
+```bash
+└── mainnet
+    └── your-destination-gce-instance-name
+        ├── manifests
+        │   ├── Chart.yaml
+        │   ├── templates
+        │   │   ├── _labels.tpl
+        │   │   └── all.yaml
+        │   └── values.yaml
+        └── your-destination-gce-instance-name.yaml # Kubernetes Crossplane definitions served by Argocd
+```
 ## Prerequisites
 Before running this pipeline, ensure you have:
 1. A GitLab runner with appropriate permissions.
